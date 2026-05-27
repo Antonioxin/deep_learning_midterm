@@ -1,0 +1,16 @@
+# ConvVAE on CIFAR-10
+# latent_dim=128: enough capacity for colour/texture/shape of 10 classes
+data:
+  dataset: cifar10
+  batch_size: 128
+
+model:
+  arch: conv
+  latent_dim: 128
+
+training:
+  epochs: 50
+  lr: 1.0e-3
+  optimizer: adam
+  beta: 1.0
+  seed: 42

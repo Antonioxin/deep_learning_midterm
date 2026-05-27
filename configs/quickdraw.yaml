@@ -1,0 +1,17 @@
+# QuickDraw (5 categories: apple, bus, cat, face, fish)
+# ~730k training samples; same architecture as MNIST baseline
+data:
+  dataset: quickdraw
+  batch_size: 256        # larger batch: dataset is ~6x bigger than MNIST
+
+model:
+  latent_dim: 20
+  hidden_dim: 400
+  arch: fc
+
+training:
+  epochs: 20
+  lr: 1.0e-3
+  optimizer: adam
+  beta: 1.0
+  seed: 42

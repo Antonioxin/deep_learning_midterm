@@ -1,0 +1,21 @@
+# ConvVAE v2 on CIFAR-10
+# Improvements over v1:
+#   - MSE reconstruction loss (Gaussian decoder, suits continuous RGB pixels)
+#   - KL warmup: beta 0→1 over 20 epochs (prevents posterior collapse)
+#   - Wider channels: 64→128→256 (more capacity for colour/texture)
+data:
+  dataset: cifar10
+  batch_size: 128
+
+model:
+  arch: conv
+  latent_dim: 128
+
+training:
+  epochs: 100
+  lr: 1.0e-3
+  optimizer: adam
+  recon_loss: mse
+  beta: 1.0
+  beta_warmup_epochs: 20     # linear warmup: Bowman et al. (2016) Sec 3.1
+  seed: 42

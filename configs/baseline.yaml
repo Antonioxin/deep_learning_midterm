@@ -1,0 +1,16 @@
+# Baseline VAE: Kingma & Welling (2013) Section 4.2 settings
+data:
+  dataset: mnist       # options: mnist, fashion_mnist
+  batch_size: 128
+
+model:
+  latent_dim: 20       # Kingma & Welling (2013) default
+  hidden_dim: 400      # Kingma & Welling (2013) default
+  arch: fc             # fully-connected; alternative: conv
+
+training:
+  epochs: 20
+  lr: 1.0e-3           # Kingma & Welling (2013) Adam default
+  optimizer: adam
+  beta: 1.0            # KL weight; beta=1 is standard VAE (Higgins et al. 2017)
+  seed: 42
