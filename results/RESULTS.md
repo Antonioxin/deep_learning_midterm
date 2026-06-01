@@ -83,7 +83,23 @@ MLP-VAE 建模 q(z)，采样 u~N(0,I)→Stage2→Stage1。
 - **FID 95 → 85**；γ≈0.66、KL≈23.8、健康无坍塌（同 v5 行为）。
 - 闭合了「z_top~N(0,I)」与「真实 z_top」之间约 46% 的差距。
 
-## 6. 剩余空间与后续方向
+## 6. 潜空间分析（单层 ConvVAE v4）
+
+`src/visualize.py`，在 64 维向量 latent 上产出三张图：
+
+- **插值** [`figures/06_latent_interpolation.png`](figures/06_latent_interpolation.png)：两张真实图编码后
+  线性插值再解码，过渡平滑且语义连续 → latent 空间是连续的、没有明显空洞断裂。
+- **维度遍历** [`figures/07_latent_traversal.png`](figures/07_latent_traversal.png)：围绕一张真实图，
+  逐个改变最活跃的 12 维（±3σ）。每维主要调制颜色/明暗/背景等外观属性，物体结构保持；但**没有
+  单一维度干净地对应某个语义因子** → 标准 VAE 未实现解耦（与 β-VAE 不同，符合预期）。
+  注：若以数据集均值（z≈0）为基码，会解码成「均值绿斑 mush」，这反向印证了第 1 节的 prior-mean 退化。
+- **t-SNE** [`figures/08_latent_tsne.png`](figures/08_latent_tsne.png)：2500 张测试图编码 μ 降到 2D 按类别
+  上色，**类别并未清晰分簇**（混成一团）→ 无监督 VAE 的 latent 主要按低层外观（颜色/亮度/构图）组织，
+  而非类别语义。这与「CIFAR 难生成」一致：latent 没把类别结构编码进去。
+
+复现：`python src/visualize.py --exp experiments/exp_20260527_092330_cifar10_conv_v4`
+
+## 7. 剩余空间与后续方向
 
 - 本模式下界 73（z_top 真实、底层走条件先验），top-only 2-Stage 已逼到 85。
 - 真·重建下界 **33**，差距全在**底层**（z_bottom 条件先验 vs 后验）。
