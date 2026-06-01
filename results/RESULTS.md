@@ -25,6 +25,20 @@ pytorch-fid 官方 InceptionV3）为准。代表性图见 [`figures/`](figures/)
 
 ---
 
+## 0. 起点：标准 VAE 在 MNIST 上验证
+
+`configs/baseline.yaml`（FC-VAE，latent_dim=20，BCE，20 epochs，Kingma & Welling 2013 设置）。
+作为「standard VAE 能 work」的干净对照：
+
+- **重建** [`figures/10_mnist_reconstruction.png`](figures/10_mnist_reconstruction.png)：近乎完美。
+- **先验采样** [`figures/09_mnist_samples.png`](figures/09_mnist_samples.png)：从 N(0,I) 采样即得清晰可辨的数字。
+- **t-SNE** [`figures/11_mnist_tsne.png`](figures/11_mnist_tsne.png)：编码 μ 按数字**清晰分成 10 簇**。
+
+**关键对照**：MNIST 上 latent 干净地按类别组织、N(0,I) 采样就能出好图——而 CIFAR-10（第 6 节 t-SNE）
+latent 混成一团、采样糊。这正是后续所有 CIFAR 工作要解决的问题：**同一套 VAE，数据从 MNIST 换到
+CIFAR 后，先验与聚合后验的失配（prior hole）凸显出来**。复现：
+`python src/train.py --config configs/baseline.yaml --tag mnist_baseline`
+
 ## 1. 诊断：单层 ConvVAE「重建好、采样糊」的真正原因
 
 图 [`figures/01_single_level_diagnosis.png`](figures/01_single_level_diagnosis.png)（real / recon / 先验采样三行）：
