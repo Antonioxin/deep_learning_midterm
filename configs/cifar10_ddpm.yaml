@@ -1,0 +1,27 @@
+# DDPM on CIFAR-10 (Ho et al. 2020)
+# 噪声预测 U-Net + 高斯扩散；数据归一化到 [-1,1]，EMA 采样，DDIM 快速 FID。
+# 用法：python src/train_ddpm.py --config configs/cifar10_ddpm.yaml --tag cifar10_ddpm
+data:
+  dataset: cifar10
+  batch_size: 128
+  pixel_range: "11"          # [-1,1]，配合扩散过程
+
+model:
+  base_channels: 128
+  channel_mults: [1, 2, 2, 2]   # 分辨率 32/16/8/4
+  num_res_blocks: 2
+  attn_resolutions: [16]        # 16×16 处加自注意力
+  dropout: 0.1
+
+training:
+  epochs: 200
+  batch_size: 128
+  lr: 2.0e-4
+  timesteps: 1000
+  schedule: linear
+  ema_decay: 0.9999
+  grad_clip: 1.0
+  sample_every: 10
+  ddim_steps: 100               # 采样/FID 用的 DDIM 步数
+  n_fid: 5000                   # 最终 FID 生成样本数
+  seed: 42
