@@ -1,0 +1,17 @@
+# 第二阶段 VAE（2-Stage VAE, Dai & Wipf 2019）
+# 在冻结的一阶段 ConvVAE(v4) latent 上训练，修复 N(0,I) 采样的 prior hole。
+# 用法：
+#   python src/train_stage2.py \
+#       --stage1 experiments/exp_20260527_092330_cifar10_conv_v4 \
+#       --config configs/cifar10_2stage_v5.yaml --tag cifar10_2stage_v5
+model:
+  hidden_dim: 512      # MLP 隐藏层宽度
+  depth: 3             # 编码器/解码器各 3 个隐藏层
+  latent_dim: 64       # 第二阶段 latent 维度 d2（默认与一阶段 d1=64 相同）
+training:
+  epochs: 200
+  batch_size: 256
+  beta_warmup_epochs: 60   # KL 权重前 60 epoch 从 0 线性升到 1，防止 Stage-2 后验坍塌
+  lr: 0.001
+  lr_eta_min: 1.0e-05
+  seed: 42

@@ -1,0 +1,28 @@
+# ConvVAE v4 on CIFAR-10 — fix prior hole from v3
+#   - Decoder GroupNorm (no BN running-stats mismatch on prior sampling)
+#   - latent_dim 64, beta=4, shorter KL warmup
+#   - lambda_perc reduced so KL term is not drowned out
+#   - free_bits disabled (v3 issue was KL too high, not collapse)
+data:
+  dataset: cifar10
+  batch_size: 128
+  pixel_range: "11"
+
+model:
+  arch: conv
+  version: v4
+  latent_dim: 64
+
+training:
+  epochs: 100
+  lr: 1.0e-3
+  lr_scheduler: cosine
+  lr_eta_min: 1.0e-5
+  optimizer: adam
+  recon_loss: mse
+  lambda_pixel: 1.0
+  lambda_perc: 0.01
+  beta: 4.0
+  beta_warmup_epochs: 5
+  free_bits: 0.0
+  seed: 42

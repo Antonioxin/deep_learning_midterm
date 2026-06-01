@@ -1,0 +1,31 @@
+# Hierarchical ConvVAE v1 on CIFAR-10
+#   - z_top: vector latent, 64 dims, captures global structure
+#   - z_bottom: spatial latent, 64x4x4, captures local layout/detail
+#   - p(z_bottom | z_top) conditional prior closes part of the prior hole
+data:
+  dataset: cifar10
+  batch_size: 128
+  pixel_range: "11"
+
+model:
+  arch: hierarchical
+  version: hier_v1
+  top_latent_dim: 64
+  bottom_latent_channels: 64
+  base_channels: 64
+
+training:
+  epochs: 150
+  lr: 1.0e-3
+  lr_scheduler: cosine
+  lr_eta_min: 1.0e-5
+  optimizer: adam
+  recon_loss: mse
+  lambda_pixel: 1.0
+  lambda_perc: 0.01
+  beta_top: 1.0
+  beta_bottom: 1.0
+  beta_warmup_epochs: 30
+  free_bits_top: 0.0
+  free_bits_bottom: 0.02
+  seed: 42

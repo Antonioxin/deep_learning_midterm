@@ -1,0 +1,29 @@
+# ConvVAE v3 on CIFAR-10 — improvements from IMPROVEMENT.md
+#   - Perceptual loss (VGG relu3_3) + pixel MSE
+#   - Tanh decoder + [-1, 1] input normalisation
+#   - Deeper encoder (4 conv + ResBlocks, 2x2 bottleneck)
+#   - Free bits KL (0.5 nats/dim)
+#   - CosineAnnealingLR
+data:
+  dataset: cifar10
+  batch_size: 128
+  pixel_range: "11"          # [-1, 1] for Tanh
+
+model:
+  arch: conv
+  version: v3
+  latent_dim: 128
+
+training:
+  epochs: 100
+  lr: 1.0e-3
+  lr_scheduler: cosine
+  lr_eta_min: 1.0e-5
+  optimizer: adam
+  recon_loss: mse
+  lambda_pixel: 1.0
+  lambda_perc: 0.1           # perceptual weight (Johnson et al. 2016)
+  beta: 1.0
+  beta_warmup_epochs: 20
+  free_bits: 0.5             # Kingma et al. (2016) IAF free bits
+  seed: 42

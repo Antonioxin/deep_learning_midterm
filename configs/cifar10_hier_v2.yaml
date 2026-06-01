@@ -1,0 +1,33 @@
+# Hierarchical ConvVAE v2 on CIFAR-10
+# Lessons from hier_v1:
+#   - bottom latent 64x4x4 was too strong and became an autoencoder code
+#   - remove bottom free bits
+#   - increase bottom KL pressure
+#   - inject top-down features at multiple decoder resolutions
+data:
+  dataset: cifar10
+  batch_size: 128
+  pixel_range: "11"
+
+model:
+  arch: hierarchical
+  version: hier_v2
+  top_latent_dim: 64
+  bottom_latent_channels: 64
+  base_channels: 64
+
+training:
+  epochs: 150
+  lr: 1.0e-3
+  lr_scheduler: cosine
+  lr_eta_min: 1.0e-5
+  optimizer: adam
+  recon_loss: mse
+  lambda_pixel: 1.0
+  lambda_perc: 0.005
+  beta_top: 2.0
+  beta_bottom: 6.0
+  beta_warmup_epochs: 15
+  free_bits_top: 0.0
+  free_bits_bottom: 0.0
+  seed: 42

@@ -1,0 +1,17 @@
+# 对分层 VAE(hier_v3) 套用 2-Stage learned prior，修复顶层+底层两个 prior hole。
+# 在联合 latent (z_top 64 + z_bottom 64*4*4=1024 = 1088 维) 上训练 Stage2VAE。
+# 用法：
+#   python src/train_stage2_hier.py \
+#       --hier experiments/exp_20260601_170405_cifar10_hier_v3 \
+#       --config configs/cifar10_2stage_hier_v6.yaml --tag cifar10_2stage_hier_v6
+model:
+  hidden_dim: 1024     # 联合 latent 1088 维，MLP 加宽
+  depth: 3
+  latent_dim: 512      # 第二阶段 latent d2，做瓶颈（< 1088）以学到生成性映射
+training:
+  epochs: 200
+  batch_size: 256
+  beta_warmup_epochs: 60   # 防 Stage-2 后验坍塌（v5 的教训）
+  lr: 0.001
+  lr_eta_min: 1.0e-05
+  seed: 42

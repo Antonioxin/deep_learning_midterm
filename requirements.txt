@@ -6,3 +6,5 @@ tqdm>=4.65.0
 pillow>=10.0.0
 pyyaml>=6.0
 seaborn>=0.12.0
+scipy>=1.10.0          # FID 协方差/矩阵平方根
+pytorch-fid>=0.3.0     # FID 评测（src/eval_fid.py）
