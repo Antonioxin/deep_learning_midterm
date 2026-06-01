@@ -402,6 +402,8 @@ def train(config: dict, tag: str) -> None:
     with open(exp_dir / "README.md", "w") as f:
         f.write(f"# {exp_dir.name}\n\nTODO: 记录本次实验的关键发现和观察。\n")
 
+    return exp_dir
+
 
 def main() -> None:
     """命令行入口：解析 --config 与 --tag，加载 YAML 后调用 train()。"""
