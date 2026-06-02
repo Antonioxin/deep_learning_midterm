@@ -85,6 +85,49 @@ class GaussianDiffusion:
                 x = mean
         return x.clamp(-1, 1)
 
+    # ---------- DDIM 确定性采样，返回中间 x̂₀ 帧（用于可视化进程）----------
+    @torch.no_grad()
+    def ddim_sample_progressive(self, model, shape, ddim_steps: int = 100,
+                                eta: float = 0.0, n_frames: int = 16):
+        """返回 (n_frames+1, B, C, H, W) 张量，第 0 帧为纯噪声，其余为各步预测的 x̂₀。"""
+        step_seq = torch.linspace(0, self.timesteps - 1, ddim_steps, dtype=torch.long).tolist()
+        step_seq = list(reversed(step_seq))
+        x = torch.randn(shape, device=self.device)
+
+        # 均匀选取要记录的步骤索引（包含起点噪声帧和终点）
+        record_at = set()
+        record_at.add(0)  # 纯噪声（xt，尚未预测 x0）
+        for k in range(1, n_frames + 1):
+            idx = int(round((k / n_frames) * (ddim_steps - 1)))
+            record_at.add(idx + 1)  # +1 是因为第 0 帧是纯噪声，之后每步 +1
+
+        frames = [x.clamp(-1, 1).cpu()]  # 第 0 帧：纯噪声
+
+        for idx, i in enumerate(step_seq):
+            t = torch.full((shape[0],), i, device=self.device, dtype=torch.long)
+            pred = model(x, t)
+            acp_t = _extract(self.alphas_cumprod, t, x.shape)
+            x0 = (x - torch.sqrt(1 - acp_t) * pred) / torch.sqrt(acp_t)
+            x0 = x0.clamp(-1, 1)
+            if idx == len(step_seq) - 1:
+                x = x0
+            else:
+                i_prev = step_seq[idx + 1]
+                t_prev = torch.full((shape[0],), i_prev, device=self.device, dtype=torch.long)
+                acp_prev = _extract(self.alphas_cumprod, t_prev, x.shape)
+                sigma = eta * torch.sqrt((1 - acp_prev) / (1 - acp_t) * (1 - acp_t / acp_prev))
+                dir_xt = torch.sqrt(1 - acp_prev - sigma ** 2) * pred
+                x = torch.sqrt(acp_prev) * x0 + dir_xt + sigma * torch.randn_like(x)
+            if (idx + 1) in record_at:
+                frames.append(x0.cpu())
+
+        # 确保最后一帧是最终结果
+        if len(frames) < n_frames + 1:
+            frames.append(x.clamp(-1, 1).cpu())
+        # 截取前 n_frames+1 帧
+        frames = frames[: n_frames + 1]
+        return torch.stack(frames)  # (n_frames+1, B, C, H, W)
+
     # ---------- DDIM 确定性采样（少步，用于快速生成/FID）----------
     @torch.no_grad()
     def ddim_sample(self, model, shape, ddim_steps: int = 100, eta: float = 0.0) -> torch.Tensor:
