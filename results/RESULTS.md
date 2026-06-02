@@ -1,8 +1,8 @@
-# CIFAR-10 VAE 生成质量改进：实验过程与教训
+# CIFAR-10 生成质量：从 VAE 到 DDPM 的实验过程与教训
 
-本文件记录从「单层 ConvVAE 采样糊」出发，经诊断、2-Stage 修复、分层 VAE、到分层 + learned
-prior 的完整实验链，含**失败的尝试与教训**。所有结论以 **FID**（vs CIFAR-10 测试集 10k，
-pytorch-fid 官方 InceptionV3）为准。代表性图见 [`figures/`](figures/)。
+本文件记录从「单层 ConvVAE 采样糊」出发，经诊断、2-Stage 修复、分层 VAE、分层 + learned
+prior，最终**换用 DDPM（扩散模型）**的完整实验链，含**失败的尝试与教训**。所有结论以 **FID**
+（vs CIFAR-10 测试集 10k，pytorch-fid 官方 InceptionV3）为准。代表性图见 [`figures/`](figures/)。
 
 > 复现脚本均在 `src/`，配置在 `configs/`。实验产物（权重/逐 epoch 图/日志）在 `experiments/`
 > 下（已 gitignore，本地生成）。
@@ -13,15 +13,18 @@ pytorch-fid 官方 InceptionV3）为准。代表性图见 [`figures/`](figures/)
 
 | 模型 / 采样方式 | FID | 备注 |
 |---|---:|---|
-| 单层 ConvVAE v4，z~N(0,I) | 155 | 基线 |
-| 单层 + 2-Stage learned prior (v5) | 129 | 单层最佳 |
+| 单层 ConvVAE v4，z~N(0,I) | 155 | VAE 基线 |
+| 单层 + 2-Stage learned prior (v5) | 129 | 单层 VAE 最佳 |
 | 分层 VAE v3，原生采样 | 95 | 分层原生已是大跃升 |
-| **分层 v3 + 2-Stage(只对 z_top)** | **85** | **全项目最佳** |
-| 分层 v3 重建（z_bottom 用后验，真·下界） | 33 | 生成的理论上界参考 |
+| 分层 v3 + 2-Stage(只对 z_top) | 85 | **VAE 系最佳** |
 | 分层 + 2-Stage(联合 latent) | 198 | ❌ 失败，见第 4 节 |
+| **DDPM（扩散模型，EMA + DDIM-100）** | **16.6** | **全项目最佳，见第 8 节** |
+| 参考：分层 VAE 重建（真·下界） | 33 | VAE 生成的理论上界 |
 
-**一句话**：分层 + 对顶层套 learned prior 得到最佳 FID 85；过程中最大的教训是「采样糊」长期被
-错误指标误导，以及 2-Stage 技巧被错误地套用到高维高噪 latent 上而失败。
+**一句话**：VAE 一路优化到 FID 85（分层 + 顶层 learned prior），但**换用 DDPM 后 FID 直接降到
+16.6**，是 VAE 最佳的约 5 倍提升、甚至优于 VAE 的重建下界 33——这说明 CIFAR 生成的真正瓶颈是
+VAE 的建模范式（单步 + 高斯似然），而扩散模型的多步去噪从根本上更适合。过程中最大的教训是
+「采样糊」长期被错误指标（pixel std/肉眼）误导，以及 2-Stage 被错误套用到高维高噪 latent 上而失败。
 
 ---
 
@@ -131,12 +134,47 @@ MLP-VAE 建模 q(z)，采样 u~N(0,I)→Stage2→Stage1。
 对 FID 几乎无影响，印证「问题在 prior hole 而非 KL 权重」的诊断；(3) latent_dim=64 选得合适；
 (4) free_bits 无用，再次说明本模型不存在后验坍塌。
 
-## 8. 剩余空间与后续方向
+## 8. 换模型：DDPM（扩散模型）✓ 全项目最佳
 
-- 本模式下界 73（z_top 真实、底层走条件先验），top-only 2-Stage 已逼到 85。
-- 真·重建下界 **33**，差距全在**底层**（z_bottom 条件先验 vs 后验）。
-- 要逼近 33：需**更强的底层先验**（NVAE 式 prior/posterior 残差耦合、空间自回归）+ **更好的
-  似然**（离散 logistic 混合），而非简单 learned prior（第 4 节已证此路不通）。
+VAE 一路优化到 FID 85 仍受其建模范式（单步生成 + 高斯/感知像素似然）限制，遂换用
+**DDPM**（Ho et al. 2020）。`src/models/unet.py` + `src/diffusion.py` + `src/train_ddpm.py`。
+
+**实现**：
+- ε-预测 U-Net（35.7M 参数，与 DDPM 原文 CIFAR 配置一致）：正弦时间嵌入 + 带时间条件
+  ResBlock（GroupNorm/SiLU）+ 16×16 自注意力 + U-Net skip。
+- 高斯扩散 T=1000、linear 调度；训练目标 MSE(ε, ε_θ(x_t,t))；数据 [-1,1]。
+- **EMA**（decay 0.9999）权重采样；**bf16 混合精度**（4.8→7.0 it/s）；**DDIM-100** 少步采样做快速 FID。
+- 训练 ~190 epoch（~7.5万步，~3.5h on RTX 4080）。
+
+**结果**（FID vs CIFAR-10 test 10k，DDIM-100，n=10000）：
+
+| 采样 | FID |
+|---|---:|
+| **DDPM EMA** | **16.63** |
+| DDPM 原始权重（非 EMA） | 25.04 |
+
+样本见 [`figures/12_ddpm_samples.png`](figures/12_ddpm_samples.png)：马/狗/鹿/车/船/鸟/飞机清晰可辨、
+色彩构图自然，**质的飞跃**——VAE 最佳 85 → DDPM 16.6（约 5 倍），甚至优于 VAE 重建下界 33。
+
+**两条教训**：
+1. **EMA 必不可少**：EMA 16.6 vs 原始 25.0。但 decay=0.9999 时早期（<2 万步）EMA 影子权重大部分
+   仍是初始随机权重，故 epoch 10 的 EMA 采样看似纯噪点——这是 EMA 滞后而非 bug，用原始权重采样
+   即可见早期已在学习。
+2. **范式 > 调参**：VAE 上花大量精力（感知损失、分层、learned prior）换来 155→85；换成扩散模型
+   一步到 16.6。说明 CIFAR 生成的根本瓶颈在 VAE 的单步高斯解码，多步去噪从根本上更合适。
+
+复现：`python src/train_ddpm.py --config configs/cifar10_ddpm.yaml --tag cifar10_ddpm`
+
+## 9. 剩余空间与后续方向
+
+**VAE 线**（若仍想推进 VAE）：top-only 2-Stage 已逼到本模式下界 73；真·重建下界 33，差距在底层
+（z_bottom 条件先验 vs 后验）。要逼近 33 需更强底层先验（NVAE 残差耦合 / 空间自回归）+ 更好似然
+（离散 logistic 混合）。但性价比已低于直接用扩散模型。
+
+**DDPM 线**（更有前景）：当前 16.6 用 ~7.5 万步 + DDIM-100。进一步降 FID 可考虑——
+- 训练更久（DDPM 原文 80 万步达 FID 3.17）；
+- 采样用完整 1000 步祖先采样或更多 DDIM 步（DDIM-100 略逊于完整采样）；
+- cosine 调度 / 更大模型 / EMA decay 调优。
 
 ---
 
@@ -148,3 +186,6 @@ MLP-VAE 建模 q(z)，采样 u~N(0,I)→Stage2→Stage1。
 | `src/train_stage2.py` | 单层 2-Stage VAE 训练 + 对比图 |
 | `src/train_stage2_hier.py` | 分层 2-Stage（`--latent top/joint`）+ 对比图 + FID |
 | `src/eval_fid.py` | 通用 FID 评测（pytorch-fid InceptionV3） |
+| `src/visualize.py` | 潜空间分析（插值/遍历/t-SNE，支持 conv+fc） |
+| `src/run_ablation.py` | 单层 VAE 受控消融 + FID 表 |
+| `src/models/unet.py` + `src/diffusion.py` + `src/train_ddpm.py` | **DDPM**（U-Net + 扩散 + EMA + DDIM） |
